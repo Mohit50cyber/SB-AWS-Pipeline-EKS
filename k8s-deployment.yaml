@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mohit-kubernetes
+spec:
+  selector:
+    matchLabels:
+      app: mohit-kubernetes
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: mohit-kubernetes
+    spec:
+      containers:
+        - name: mohit-kubernetes
+          image: mohit-kubernetes:1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 6000
