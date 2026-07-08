@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: mohit-kubernetes
-          image: mohit-kubernetes:1.0
-          imagePullPolicy: IfNotPresent
+          image: mohit-kubernetes:1.0   # ✅ use full image name + tag
+          imagePullPolicy: IfNotPresent                 # ✅ force pull from Docker Hub
           ports:
             - containerPort: 6000

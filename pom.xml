@@ -9,7 +9,7 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.kubernetes</groupId>
-	<artifactId>kubernetes</artifactId>
+	<artifactId>SB-AWS-Pipeline-EKS</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>kubernetes</name>
 	<description>Demo project for Spring Boot</description>
