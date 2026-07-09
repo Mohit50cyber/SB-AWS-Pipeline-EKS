@@ -3,7 +3,7 @@ version: 0.2
 env:
   variables:
     AWS_REGION: ap-south-1
-    REPOSITORY_URI: 792157736433.dkr.ecr.ap-south-1.amazonaws.com/mohit-kubernetes:latest
+    REPOSITORY_URI: 792157736433.dkr.ecr.ap-south-1.amazonaws.com/mohit-kubernetes
     IMAGE_REPO_NAME: mohit-kubernetes
     CONTAINER_NAME: mohit-kubernetes
 
@@ -12,18 +12,24 @@ phases:
     runtime-versions:
       java: corretto21
     commands:
+      - set -e
       - echo "Installing dependencies..."
       - mvn -version
 
   pre_build:
     commands:
+      - set -e
       - echo "Logging in to Amazon ECR..."
       - aws --version
       - aws sts get-caller-identity
-      - aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 792157736433.dkr.ecr.ap-south-1.amazonaws.com
+
+      - aws ecr get-login-password --region $AWS_REGION \
+        | docker login --username AWS \
+        --password-stdin 792157736433.dkr.ecr.ap-south-1.amazonaws.com
 
       - echo "Setting image tag..."
       - IMAGE_TAG=$(echo $CODEBUILD_BUILD_ID | awk -F":" '{print $2}')
+      - echo "IMAGE_TAG=$IMAGE_TAG"
 
       - echo "Ensuring ECR repository exists..."
       - |
@@ -32,30 +38,38 @@ phases:
 
   build:
     commands:
+      - set -e
       - echo "Build started on $(date)"
-      - echo "Building JAR file..."
+
+      - echo "Building JAR..."
       - mvn clean install -DskipTests
 
       - echo "Building Docker image..."
-      - docker build -t mohit-kubernetes .
+      - docker build -t $IMAGE_REPO_NAME .
 
       - echo "Tagging Docker image..."
-      - docker tag mohit-kubernetes:latest 792157736433.dkr.ecr.ap-south-1.amazonaws.com/mohit-kubernetes:latest
+      - docker tag $IMAGE_REPO_NAME:latest $REPOSITORY_URI:latest
       - docker tag $IMAGE_REPO_NAME:latest $REPOSITORY_URI:$IMAGE_TAG
 
-      - echo "Docker images list:"
+      - echo "Verifying Docker images..."
       - docker images
+
+      - echo "Ensure image exists..."
+      - docker images | grep $IMAGE_REPO_NAME || (echo "ERROR: Image not built" && exit 1)
 
   post_build:
     commands:
       - set -e
-      - echo "Pushing images"
-      - docker images || exit 1
-      - docker push 792157736433.dkr.ecr.ap-south-1.amazonaws.com/mohit-kubernetes:latest
-      - docker push $REPOSITORY_URI:latest || exit 1
+      - echo "Pushing Docker images..."
 
-      - echo "Generating imagedefinitions.json"
+      - docker push $REPOSITORY_URI:$IMAGE_TAG
+      - docker push $REPOSITORY_URI:latest
+
+      - echo "Generating imagedefinitions.json..."
       - printf '[{"name":"%s","imageUri":"%s"}]' $CONTAINER_NAME $REPOSITORY_URI:$IMAGE_TAG > imagedefinitions.json
+
+      - echo "Printing imagedefinitions.json"
+      - cat imagedefinitions.json
 
 artifacts:
   files:
