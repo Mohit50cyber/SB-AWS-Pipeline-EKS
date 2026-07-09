@@ -13,23 +13,13 @@ phases:
       java: corretto21
     commands:
       - set -e
-      - echo "Installing dependencies..."
       - mvn -version
 
   pre_build:
     commands:
       - set -e
-      - echo "Logging in to Amazon ECR..."
-      - aws --version
-      - aws sts get-caller-identity
-
       - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin 792157736433.dkr.ecr.ap-south-1.amazonaws.com
-
-      - echo "Setting image tag..."
       - IMAGE_TAG=$(echo $CODEBUILD_BUILD_ID | awk -F":" '{print $2}')
-      - echo "IMAGE_TAG=$IMAGE_TAG"
-
-      - echo "Ensuring ECR repository exists..."
       - |
         aws ecr describe-repositories --repository-names $IMAGE_REPO_NAME --region $AWS_REGION || \
         aws ecr create-repository --repository-name $IMAGE_REPO_NAME --region $AWS_REGION
@@ -37,32 +27,17 @@ phases:
   build:
     commands:
       - set -e
-      - echo "Build started on $(date)"
-      - echo "Building JAR..."
       - mvn clean install -DskipTests
-
       - echo "Building Docker image..."
-      - docker build -t $IMAGE_REPO_NAME:$IMAGE_TAG .
-
-      - echo "Tagging Docker image..."
-      - docker tag $IMAGE_REPO_NAME:latest $REPOSITORY_URI:latest
-      - docker tag $IMAGE_REPO_NAME:latest $REPOSITORY_URI:$IMAGE_TAG
-
-      - echo "Docker images list:"
-      - docker images
+      - docker build -t $REPOSITORY_URI:$IMAGE_TAG -t $REPOSITORY_URI:latest .
 
   post_build:
     commands:
       - set -e
       - echo "Pushing Docker images..."
-
       - docker push $REPOSITORY_URI:$IMAGE_TAG
       - docker push $REPOSITORY_URI:latest
-
-      - echo "Generating imagedefinitions.json..."
       - printf '[{"name":"%s","imageUri":"%s"}]' $CONTAINER_NAME $REPOSITORY_URI:$IMAGE_TAG > imagedefinitions.json
-
-      - cat imagedefinitions.json
 
 artifacts:
   files:
