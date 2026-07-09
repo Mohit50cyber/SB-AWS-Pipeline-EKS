@@ -1,0 +1,47 @@
+version: 0.2
+env:
+  variables:
+    REPOSITORY_URI: 792157736433.dkr.ecr.ap-south-1.amazonaws.com/mohit-kubernetes
+    DOCKER_CONTAINER_NAME: mohit-kubernetes
+phases:
+  install:
+    runtime-versions:
+      java: corretto21   # or corretto11 depending on your project
+    commands:
+      - echo Installing Maven...
+      - mvn -version
+
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR....
+      - aws --version
+      #- $(aws ecr get-login --region ap-south-1 --no-include-email)
+      - aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 792157736433.dkr.ecr.ap-south-1.amazonaws.com
+      - # Replace with this to your repository URI
+      - REPOSITORY_URI=792157736433.dkr.ecr.ap-south-1.amazonaws.com/mohit-kubernetes
+      - IMAGE_TAG=build-$(echo $CODEBUILD_BUILD_ID | awk -F":" '{print $2}')
+  build:
+    commands:
+      - echo Build started on `date`
+      - echo building the Jar file
+      - mvn clean install -DskipTests
+      - echo Building the Docker image...
+      - docker build -t $REPOSITORY_URI:latest .
+      - docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$IMAGE_TAG
+  post_build:
+    commands:
+      - echo Build completed on `date`
+      - echo pushing Docker images to ECR......
+      - docker push $REPOSITORY_URI:$IMAGE_TAG
+      - docker push $REPOSITORY_URI:latest
+      - echo Writing image definitions file...
+      # Give your container name
+      - DOCKER_CONTAINER_NAME=mohit-kubernetes
+      - printf '[{"name":"%s","imageUri":"%s"}]' $DOCKER_CONTAINER_NAME $REPOSITORY_URI:$IMAGE_TAG > imagedefinitions.json
+      - echo $DOCKER_CONTAINER_NAME
+      - echo printing imagedefinitions.json
+      - cat imagedefinitions.json
+artifacts:
+  files:
+    - imagedefinitions.json
+    - target/*.jar
